@@ -18,7 +18,7 @@ import lightning.pytorch.callbacks as lc
 class BaseExperiment(object):
     """The basic class of PyTorch training and evaluation."""
 
-    def __init__(self, args, dataloaders=None, strategy='auto', loggers=None):
+    def __init__(self, args, dataloaders=None, strategy='auto', loggers=None, additional_callbacks=[]):
         """Initialize experiments (non-dist as an example)"""
         self.args = args
         self.config = self.args.__dict__
@@ -37,7 +37,7 @@ class BaseExperiment(object):
         self.data = self._get_data(dataloaders)
         self.method = method_maps[self.args.method](steps_per_epoch=len(self.data.train_loader), \
             test_mean=self.data.test_mean, test_std=self.data.test_std, save_dir=save_dir, **self.config)
-        callbacks, self.save_dir = self._load_callbacks(args, save_dir, ckpt_dir)
+        callbacks, self.save_dir = self._load_callbacks(args, save_dir, ckpt_dir, additional_callbacks)
         self.trainer = self._init_trainer(self.args, callbacks, strategy)
 
     def _init_trainer(self, args, callbacks, strategy):
@@ -49,7 +49,7 @@ class BaseExperiment(object):
                        logger=self.loggers
                     )
 
-    def _load_callbacks(self, args, save_dir, ckpt_dir):
+    def _load_callbacks(self, args, save_dir, ckpt_dir, additional_callbacks):
         method_info = None
         if self._dist == 0:
             if not self.args.no_display_method_info:
@@ -78,6 +78,9 @@ class BaseExperiment(object):
         epochend_callback = EpochEndCallback()
 
         callbacks = [setup_callback, ckpt_callback, epochend_callback]
+
+        callbacks += additional_callbacks
+
         if args.sched:
             callbacks.append(lc.LearningRateMonitor(logging_interval=None))
         return callbacks, save_dir
