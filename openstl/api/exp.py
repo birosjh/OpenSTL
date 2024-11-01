@@ -18,7 +18,7 @@ import lightning.pytorch.callbacks as lc
 class BaseExperiment(object):
     """The basic class of PyTorch training and evaluation."""
 
-    def __init__(self, args, dataloaders=None, strategy='auto'):
+    def __init__(self, args, dataloaders=None, strategy='auto', loggers=None):
         """Initialize experiments (non-dist as an example)"""
         self.args = args
         self.config = self.args.__dict__
@@ -30,6 +30,8 @@ class BaseExperiment(object):
         save_dir = osp.join(base_dir, args.ex_name if not args.ex_name.startswith(args.res_dir) \
             else args.ex_name.split(args.res_dir+'/')[-1])
         ckpt_dir = osp.join(save_dir, 'checkpoints')
+
+        self.loggers = loggers
 
         seed_everything(args.seed)
         self.data = self._get_data(dataloaders)
@@ -43,7 +45,8 @@ class BaseExperiment(object):
                        max_epochs=args.epoch,  # Maximum number of epochs to train for
                        strategy=strategy,   # 'ddp', 'deepspeed_stage_2', 'ddp_find_unused_parameters_false'
                        accelerator='gpu',  # Use distributed data parallel
-                       callbacks=callbacks
+                       callbacks=callbacks,
+                       logger=self.loggers
                     )
 
     def _load_callbacks(self, args, save_dir, ckpt_dir):
@@ -78,7 +81,7 @@ class BaseExperiment(object):
         if args.sched:
             callbacks.append(lc.LearningRateMonitor(logging_interval=None))
         return callbacks, save_dir
-
+    
     def _get_data(self, dataloaders=None):
         """Prepare datasets and dataloaders"""
         if dataloaders is None:
